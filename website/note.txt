@@ -1,1 +1,26 @@
 https://www.nowcoder.com/questionTerminal/ece9de88b6924e8d8e984913c69844e4?orderByHotValue=0&mutiTagIds=607&page=11&onlyReference=false
+
+Garena:
+1 查询2014年的登陆次数大于1次的
+CREATE TABLE user (`userId` int, `name` varchar(32));
+	INSERT INTO user (`userId`, `name`)
+VALUES 	(1, 'a'),	(2, 'b'), (3, 'v');
+
+CREATE TABLE log (`id` int, `userId` int, `loginTime` DATETIME);
+	INSERT INTO log (`id`, `userId`, `loginTime`)
+VALUES
+	(1, 1,'2003-05-05'),
+	(2, 1,'2014-05-05'),
+    (3, 1,'2014-05-06'),
+    (4, 1,'2014-05-07'),
+	(5, 1,'2015-05-05'),
+    (6, 2,'2014-05-06'),
+    (7, 2,'2003-05-05'),
+	(8, 3,'2014-05-05'),
+    (9, 3,'2014-05-06');
+    
+    
+select u.name, count(l.userId) as number from user u
+left join log l on u.userid = l.userId and l.loginTime like '2014%'
+group by l.userId having number > 1 order by number desc;
+
