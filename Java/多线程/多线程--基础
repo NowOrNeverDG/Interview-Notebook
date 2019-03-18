@@ -1,0 +1,453 @@
+Java多线程
+从本篇开始，笔者开始了一个新的专题，来说说Java多线程。
+在讲解Java多线程之前，我们来了解下进程和线程的概念！！！！
+进程
+进程的概念，是60年代初首先由麻省理工学院的MULTICS系统和IBM公司的CTSS/360系统引入的。
+对于操作系统来说，进程是最核心的概念，操作系统实现并发的基础。进程是一个动态的过程，存在生命周期，可以申请和拥有系统资源，是一个程序的执行过程，是一个活动的实体。
+程序作为一种软件资料长期存在，指令和数据的有序集合，其本身没有任何运行的含义，是一个静态的概念。而进程是有一定生命期的，程序在处理机上的一次执行过程，它是一个动态的概念，也就是说：程序是永久的，进程是暂时的。
+简单的理解：进程是正在运行程序的实例。
+我们知道，进程是一个实体，它拥有自己的内存空间，包含了文本区域(代码)、数据区域(变量信息)和堆栈信息(调用指令)。此外，程序是没有生命周期的，只有当处理器赋予程序生命时，它便成为了一个活动的实体，即成为了一个进程。
+在不同操作系统下，进程的图形化展示：
+
+
+
+
+
+windows下开启的线程
+
+
+
+
+
+
+linux下开启的进程
+
+线程
+线程，也被称为轻量级进程(Lightweight Process，LWP），是程序执行流的最小单元。一个标准的线程由线程ID，当前指令指针(PC），寄存器集合和堆栈组成。
+当我们运行一个程序时，系统会为我们创建一个进程，在实际运行过程中，进程会创建一个个线程，以来实现程序不同的功能。
+通常在一个进程中会包含若干个线程，它们可以利用进程所拥有的资源，但是其本身并不拥有系统资源。
+在我们常见的操作系统中，进程是资源分配的基本单位，而把线程是独立运行和独立调度的基本单位。直白点，就是说操作系统给进程分配系统内存、CPU等核心资源，而进程来实现程序种的功能。
+由于线程比进程更小，不占用系统资源，对线程的调度所付出的开销要小得多，所以能更高效的提高系统中多个程序间并发程度，从而显著提高系统资源的利用率和吞吐量。
+多线程
+在一个进程中，同时运行多个线程来完成不同的工作，就称为多线程。
+多线程的存在，是为了同时完成多项任务，提高资源使用效率。
+在Java中，一个Java程序的启动，意味着虚拟机这个进程的启动，当我们执行一个main()方法时，实际上启动了一个叫做main-thread的线程，这个线程就来实现我们所需要的功能、逻辑。
+接下来，我们就来介绍下在Java中，多线程的实现。
+线程创建
+在Java中，创建创建有两种方法：
+继承 Thread 类创建线程；
+
+实现 Runnable 接口类创建线程；
+
+(1)继承Thread类
+public class ThreadTest1 extends Thread{
+
+    @Override
+    public void run() {
+        System.out.println("新启线程为："+Thread.currentThread().getName());
+    }
+
+    public static void main(String[] agrs){
+        ThreadTest1 threadTest11 = new ThreadTest1();
+        ThreadTest1 threadTest12 = new ThreadTest1();
+        threadTest11.start();
+        threadTest12.start();
+        System.out.println("main线程为："+Thread.currentThread().getName());
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+测试结果如下：
+main线程为：main
+
+新启线程为：Thread-0
+
+新启线程为：Thread-1
+
+继承Thread类，需要重写Thread中的run()方法，在run()方法中实现具体逻辑。在main()方法中，创建线程对象，调用start()方法来启动线程，之后会执行run()方法中的逻辑。此外，我们还可以通过调用Thread的getName()方法，来获取到线程的名称。
+(2)实现Runnable接口
+public class ThreadTest2 implements Runnable{
+
+    @Override
+    public void run() {
+        System.out.println("新启线程为："+Thread.currentThread().toString());
+    }
+
+    public static void main(String[] agrs){
+        for(int x=0;x<10;x++){
+            new Thread(new ThreadTest2()).start();
+        }
+        System.out.println("main线程为："+Thread.currentThread().toString());
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+测试结果如下：
+main线程为：Thread[main,5,main]
+新启线程为：Thread[Thread-0,5,main]
+新启线程为：Thread[Thread-1,5,main]
+新启线程为：Thread[Thread-2,5,main]
+新启线程为：Thread[Thread-3,5,main]
+新启线程为：Thread[Thread-4,5,main]
+新启线程为：Thread[Thread-6,5,main]
+新启线程为：Thread[Thread-9,5,main]
+新启线程为：Thread[Thread-5,5,main]
+新启线程为：Thread[Thread-8,5,main]
+新启线程为：Thread[Thread-7,5,main]
+
+实现Runnable接口，需要实现接口中的run()方法。与继承Thread不同的是，在创建线程对象时需要借助Thread的构造方法，再调用start()方法来完成启动线程。
+在run()方法中，我们调用了Thread的toString()方法，该方法返回结果包括：线程的名称，线程的优先级，线程组的名称；
+通常，我们都是使用实现Runnable接口的方式来完成线程的创建和启动。对于继承Thread来说，该方式实现起来编码更简单，在run()方法内部即可调用Thread类的方法；而实现Runnable接口方式，则极大避免了Java单继承的局限。
+从上面的两个例子中可以看出，无论是继承Thread、还是实现Runnable接口的方式，本质上来说都离不开Thread类。
+下面，我们来具体看下Thread类中有哪些主要方法：
+线程方法
+
+
+
+方法
+方法描述
+
+
+
+
+public void start()
+使该线程开始执行；Java 虚拟机调用该线程的 run 方法
+
+
+public void run()
+虚拟机执行线程调用的方法
+
+
+public final void setName(String name)
+改变线程名称
+
+
+public final void setPriority(int priority)
+更改线程的优先级
+
+
+public final void setDaemon(boolean on)
+将该线程标记为守护线程
+
+
+public final void join()
+当我们调用某个线程的这个方法时，这个方法会挂起调用线程，直到被调用线程结束执行，调用线程才会继续执行
+
+
+public void interrupt()
+中断线程，给在执行的线程一个中断信号，并不是停止线程的运行
+
+
+public final boolean isAlive()
+测试线程是否处于活动状态
+
+
+public static void yield()
+暂停当前正在执行的线程对象，并执行其他线程（也可能是自己）
+
+
+public static void sleep(long millisec)
+在指定的毫秒数内让当前正在执行的线程休眠（暂停执行
+
+
+public static Thread currentThread()
+返回对当前正在执行的线程对象的引用
+
+
+
+(1)调整线程优先级--setPriority(int priority)
+public class ThreadTest3 implements Runnable{
+    @Override
+    public void run() {
+        System.out.println("新启线程的优先级为："+Thread.currentThread().getPriority());
+    }
+
+    public static void main(String[] agrs){
+        //设置main的线程优先级：
+        Thread.currentThread().setPriority(10);
+        System.out.println("设置main线程的优先级为："+Thread.currentThread().getPriority());
+        for(int x=0;x<10;x++){
+            Thread thread = new Thread(new ThreadTest3());
+            if(x%2==0){
+                thread.setPriority(7);
+            }
+            thread.start();
+        }
+        System.out.println("main线程为："+Thread.currentThread().toString());
+    }
+}
+
+在上面的例子中，我们通过setPriority(int priority)来设置线程的优先级，优先级高的线程优先执行。
+Java线程的优先级取值范围是1~~10，Thread类中有下面三个静态常量：
+static int MAX_PRIORITY：线程可以具有的最高优先级，取值为10
+          
+static int MIN_PRIORITY：线程可以具有的最低优先级，取值为1
+          
+static int NORM_PRIORITY：分配给线程的默认优先级，取值为5
+
+在Java线程中，每个线程都有默认的优先级，默认为5.
+此外，Java线程的优先级还有继承关系，例如上面的例子中，我们首先设置了main线程的优先级，当我们在main中启动别的线程时，如果没有对新启动的线程指定优先级，那么新启动的线程继承main线程的优先级。
+(2)线程睡眠--sleep(long millisec)
+public class ThreadTest4 implements Runnable{
+    @Override
+    public void run() {
+        System.out.println("新启线程："+Thread.currentThread().toString());
+        try {
+            Thread.sleep(100);
+            System.out.println("新启线程停止500毫秒");
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] agrs){
+        for(int x=0;x<10;x++){
+            Thread thread = new Thread(new ThreadTest4());
+            thread.start();
+        }
+        System.out.println("main线程为："+Thread.currentThread().toString());
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+使正在运行的Java线程转到阻塞状态，millisec参数设定的是线程的睡眠时间，以毫秒为单位，sleep(long millisec)是静态方法，只能控制当前正在运行的线程。
+当Java线程在睡眠结束后，便会转为就绪（Runnable）状态。
+（关于线程的状态，在下一小节介绍）
+值得注意的是，一个线程执行了sleep操作，如果这个线程获取到锁，那么sleep并不会让出锁。
+前面说了，一个线程在睡眠结束后，便会转为就绪状态，并不会立刻执行，需要等待CPU的调度，那么sleep中指定的时间就是线程休眠的最短时间。
+(3)父线程等待子线程结束之后再运行--join()
+public class ThreadTest5 implements Runnable{
+    @Override
+    public void run() {
+        System.out.println("新启线程："+Thread.currentThread().toString());
+    }
+
+    public static void main(String[] agrs){
+        List<Thread> list = new ArrayList<Thread>();
+        for(int x=0;x<10;x++){
+            Thread thread = new Thread(new ThreadTest5());
+            list.add(thread);
+            thread.start();
+        }
+        for(Thread thread:list){
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        System.out.println("main继续做事，main线程为："+Thread.currentThread().toString());
+    }
+}
+
+等待线程执行完成后，再继续执行，这就是join存在的意义。当我们在线程A中，调用了线程B的join()方法，那么线程A会停下，被阻塞，但是不会释放锁(这一点跟sleep一样)，等待线程B执行完成，此时线程A又恢复到了就绪状态（不是立即执行，这一点跟sleep也一样）。
+我们锁了，join()会阻塞线程的执行，那么为什么呢？我们来看看源码：
+//无参数的 join():
+public final void join() throws InterruptedException {
+    join(0);
+}
+
+public final synchronized void join(long millis) throws InterruptedException {
+    long base = System.currentTimeMillis();
+    long now = 0;
+    if (millis < 0) {
+        throw new IllegalArgumentException("timeout value is negative");
+    }
+    //如果等于0，则一直执行while循环，循环体中调用wait()方法
+    if (millis == 0) {
+        while (isAlive()) {
+            wait(0);
+        }
+    } else {
+        //如果不为0，则计算阻塞的时间：
+        while (isAlive()) {
+            long delay = millis - now;
+            if (delay <= 0) {
+                break;
+            }
+            wait(delay);
+            now = System.currentTimeMillis() - base;
+        }
+    }
+}
+
+通过源码，我们发现，join内部其实是由于wait()方法实现。当我们调用无参数的join()方法时，线程会一直执行while循环，探测实现是否还存活，存活就wait(0)，就这样一直在while循环中做判断，当线程执行结束后，isAlive()返回false，while循环结束。
+(4)暂停当前正在执行的线程，并执行其他线程--yield()
+public class ThreadTest8 implements Runnable{
+    @Override
+    public void run() {
+        for (int i = 0; i < 10; i++) {
+            System.out.println("新启动线程：" + i);
+            Thread.yield();
+        }
+    }
+
+    public static void main(String[] agrs){
+        new Thread(new ThreadTest8()).start();
+        System.out.println("新线程启动了");
+        for (int i = 0; i < 10; i++) {
+            System.out.println("main线程：" + i);
+            Thread.yield();
+        }
+    }
+}
+
+暂停当前正在执行的线程，执行其他线程。对于其他线程，这里面包含了两种含义。
+Thread.yield()执行后，允许其他线程获得运行机会。因此，使用yield()让多个线程之间能适当的轮转执行。
+但是，测试结果来看无法完全保证Thread.yield()的目的，执行Thread.yield()的线程有可能被线程调度程序再次选中，也就是说自己被认为了其他线程。
+值得注意的是，Thread.yield()是将线程从运行状态转为了就绪状态，并没有阻塞线程。
+(5)中断线程--interrupt()
+public class ThreadTest6 implements Runnable{
+    @Override
+    public void run() {
+        while(true){
+            if(Thread.currentThread().isInterrupted()){
+                System.out.println("我被中断了");
+            }else{
+                System.out.println("我一直在运行");
+            }
+        }
+    }
+
+    public static void main(String[] agrs){
+        Thread thread = new Thread(new ThreadTest6());
+        thread.start();
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        thread.interrupt();
+    }
+}
+
+interrupt()方法通过修改了被调用线程的中断状态来告知那个线程, 告诉它自己已经被中断了，这里指的中断是一个中断信号，不是说将被调用的线程给干掉了，不要理解错了。
+我们可以通过调用线程的isInterrupted()方法，来获取线程的中断状态，通过此状态来判断线程中的执行逻辑。
+对于非阻塞线程来说(例如上面的例子)，调用interrupt()方法后，只是修改了线程的中断状态，isInterrupted()返回true。
+但是对于阻塞线程来说，就不同了。
+回想下，当我们在程序中调用Thread.sleep()、Object.wait()、Thread.join()时，会抛出一个叫InterruptedException的异常，看这个异常的命名，是不是跟现在我们所讲的interrupt()方法类似。
+没错，对于阻塞线程来说，当我们执行interrupt()方法后，被阻塞的线程会抛出InterruptedException异常，并且将线程中断状态置为true。至于，对异常的处理就因业务需求而已了。
+public class ThreadTest6 implements Runnable{
+    @Override
+    public void run() {
+        while(true){
+            try {
+                Thread.sleep(1000000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                System.out.println("终于明白sleep会抛出异常了捕获异常了");
+            }
+        }
+    }
+
+    public static void main(String[] agrs){
+        Thread thread = new Thread(new ThreadTest6());
+        thread.start();
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        thread.interrupt();
+    }
+}
+
+(6)设置守护线程--setDaemon()
+public class ThreadTest7 implements Runnable{
+    @Override
+    public void run() {
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            System.out.println("守护线程中，我会执行吗？");
+        }
+    }
+
+    public static void main(String[] agrs){
+        Thread thread = new Thread(new ThreadTest7());
+        thread.setDaemon(true);
+        thread.start();
+        System.out.println("守护线程启动");
+    }
+}
+
+在Java中，线程分为两大类型：用户线程和守护线程。
+通过Thread.setDaemon(false)设置为用户线程，默认不调用此方法而创建的线程也是用户线程；
+通过Thread.setDaemon(true)设置为守护线程。
+setDaemon()方法必须在start()方法之前设置，否则会抛出IllegalThreadStateException异常。
+守护线程和用户线程有何不同？
+当我们将一个线程设置为守护线程，如果主线程执行结束，那么守护线程也会跟随主线程一起结束。
+而用户线程却不同，如果主线程执行结束，但是用户线程还在执行，那么程序就不会停止。
+最典型的守护线程，就是JVM虚拟机中的垃圾回收器。
+上面的例子中，新启动的线程被设置成了守护线程，当main线程结束时，守护线程也随之结束。但是，守护线程中的finally代码块并不会执行。
+线程生命周期
+线程是一个动态执行的过程，它有一个从出生到死亡的过程。在Thread类中，Java提供了线程的一生中会经过哪些状态。
+（1）NEW：出生，new Thread()
+（2）RUNNABLE：运行，start()、run()
+（3）BLOCKED：阻塞，等待锁synchronized block
+（4）WAITING：无限等待，join()、wait()
+（5）TIMED_WAITING：定时等待，sleep(x)、wait(x)、join(x)
+（6）TERMINATED：终结，线程执行完毕
+列个表格，具体说下。需要注意的是，上面6种状态与网上搜出来的很多文章并不一致（网上多一些状态进行了归类），请以此为准，因为这些状态是Thread明确列出的。
+
+
+
+方法
+简要说明
+
+
+
+
+NEW
+线程的初始状态，也就是我们在代码中new Thread()后的状态，还没有调用start()方法
+
+
+RUNNABLE
+运行状态，这一点与网上的很多文章不一样，在Thread类中，运行状态包含了就绪和运行，也就是调用了start()和实际执行run()
+
+
+BLOCKED
+阻塞状态，线程在进入同步代码块之前，发现已经有线程获取到了锁，所以本线程阻塞等待锁的释放
+
+
+WAITING
+等待状态，等待其他线程做一事情，例如当我们的一个线程被执行了Object.wait()，那么该线程实际在等待其他线程触发Object.notify、Object.notifyAll()
+
+
+TIMED_WAITING
+定时等待，与WAITING不同的是，此种状态在达到一定时间便可返回运行状态，而不需要依赖其他线程处理，例如：Thread.sleep(x)、Object.wait(x)
+
+
+TERMINATED
+终结状态，也就是说线程执行完毕了
+
+
+
+下面，我们通过图片再具体了解下，状态之间的流转：
+
+
+
+
+
+image
+
+需要注意的是，图中从其他状态变为运行状态时，其实是恢复成了就绪状态，还需要等待CPU的调度，才能真正的执行。
+
+作者：贾博岩
+链接：https://www.jianshu.com/p/41d967ed1241
+来源：简书
+简书著作权归作者所有，任何形式的转载都请联系作者获得授权并注明出处。
