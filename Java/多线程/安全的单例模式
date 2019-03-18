@@ -1,0 +1,51 @@
+单例设计模式
+本文的最高，我们来说下面试中常见的一个问题：写一个性能安全的单例。
+不安全的单例：
+public class ThreadTest10 {
+    private static ThreadTest10 single;
+    private ThreadTest10(){}
+    //懒汉：
+    public static ThreadTest10 getInstance(){
+        if(single==null){
+            single = new ThreadTest10();
+        }
+        return single;
+    }
+}
+
+安全的单例：
+//无锁版：
+public class ThreadTest11 {
+    private static ThreadTest11 single = new ThreadTest11();
+    private ThreadTest11(){}
+    public static ThreadTest11 getInstance(){
+        return single;
+    }
+}
+
+//加锁版：
+public class ThreadTest13 {
+    //创建一把锁
+    private static Object obj = new Object();
+
+    private static ThreadTest13 threadTest13;
+
+    private ThreadTest13(){}
+
+    public static ThreadTest13 getInstance(){
+        if(threadTest13==null){
+            synchronized (obj){
+                //双判断：
+                if(threadTest13==null){
+                    threadTest13 = new ThreadTest13();
+                }
+            }
+        }
+        return threadTest13;
+    }
+}
+
+作者：贾博岩
+链接：https://www.jianshu.com/p/9502246af31f
+来源：简书
+简书著作权归作者所有，任何形式的转载都请联系作者获得授权并注明出处。
