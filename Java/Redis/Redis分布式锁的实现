@@ -1,0 +1,192 @@
+分布式锁
+之前看程序员小灰的公众号，通过漫画的形式讲解了分布式锁的内容。
+后来想到公司的项目里，也利用到了分布式锁，但是分布式锁的具体代码实现和在项目中的应用并不是自己写的，具体情况还不是太懂。寻思，决定利用这个热度来看看公司的分布式锁实现，向大牛们学习学习。
+说到锁，在生活中锁通常是用来锁门的，锁车的。在java中，锁是用来同步的，锁是用来保证数据的一致性的。两者虽不同，但最终都是以安全为结果来考虑的。
+分布式锁和我们java基础中学习到的synchronized略有不同，在synchronized中我们的锁是个对象，如果一个线程拿到了该锁，别的线程就只能等待了。
+分布式中的锁，通常不会是一个对象，而是一个唯一的数据，可以是商户的订单号，商户的编码，或者是一条数据的唯一主键等等。
+synchronized主要对于单个应用中，多线程的同步；
+而分布式锁对应的是多个应用，每个应用中都可能会处理相同的数据，所以需要对对个应用的数据进行同步，保证数据的一致性；
+抛开具体代码实现，我认为两种锁的最大不同。
+分布式锁的具体实现
+1.redis
+向redis中添加一个key，添加的操作是原子性操作，key不存在才能添加成功；
+2.zookeeper
+具体实现，还没了解过，等有了解在做详细解答；
+下面我们就来看看redis怎么实现分布式锁；
+redis实现分布式锁
+说的简单些，redis来实现分布式锁的原理就是将程序中一个唯一的key写入redis中，当有其他分布式应用要访问时候此key时，就去redis中读取，读取到了则说明此数据正在被处理，读取不到则说明可以进行处理；
+但是，想将分布式锁处理的妥当，还真不是一件轻松地事情，继续往后看。
+在redis实现的分布式锁中，我们需要强调以下几点，只有保证了以下几点，才可说是确保了锁的实现：
+
+互斥，在任何时刻，对于同一条数据，只有一台应用可以获取到分布式锁；
+
+不能发生死锁，一台服务器挂了，程序没有执行完，但是redis中的锁却永久存在了，那么已加锁未执行完的数据，就永远得不到处理了，直到人工发现，或者监控发现；
+
+高可用性，可以保证程序的正常加锁，正常解锁；
+
+加锁解锁必须由同一台服务器进行，不能出现你加的锁，别人给你解锁了。
+
+再开始具体代码之前，我们需要来创建测试环境；首先是，在你的电脑中安装redis，具体安装如下：
+下载，解压，编译：
+
+$ wget http://download.redis.io/releases/redis-4.0.10.tar.gz
+$ tar xzf redis-4.0.10.tar.gz
+$ cd redis-4.0.10
+$ make
+
+编译成功后，进入到redis-4.0.10目录中，再进入到src目录下：
+
+执行./redis-server命令，redis程序启动；
+
+新启动一个新的窗口，进入到redis-4.0.10/src目录下执行，./redis-cli命令进入redis客户端；
+
+创建项目工程，添加java端redis依赖:
+最新的2.9.0版本：
+
+ <dependency>
+  <groupId>redis.clients</groupId>
+  <artifactId>jedis</artifactId>
+  <version>2.9.0</version>
+</dependency>
+
+基本的环境创建完了，接下来我们就来编写具体的代码。
+前面说了，redis分布式锁实现就是像redis服务器中插入一个可做唯一条件的的key。那么，我们来看看redis中Java的api；
+我们使用的是redis在Java中的jedis框架。
+在Jedis老版本中，多数实现使用的是setnx()方法和expire()方法实现，而在jedis最新版本中使用的是set()方法；
+例如：
+public boolean setLock(Jedis jedis,String key,String val,int expireTime){
+    if (jedis.setnx(key, val) == 1) {
+        jedis.expire(key, expireTime / 1000);
+        return true;
+    }
+    return false;
+}
+
+上面的例子中，你觉得会发生什么样的问题？如果当程序执行完成jedis.setnx后，key和val被设置到了redis中，此时应用程序异常，过期时间还未设置，那么此key将永久保留在redis中，不会被删除。之所以这么实现，是因为当时jedis框架并不支持多参数的setnx()方法,setnx指令本身不支持传入超时时间。
+public boolean setLock(Jedis jedis,String key,String val,int expireTime){
+    String response = jedis.set(key, val, "NX", "PX",
+            expireTime);
+    return "OK".equals(response);
+}
+
+此方法为现在通用的实现；当key不存在时，向redis中插入数据，设置过期时间，这就相当于上锁了；这里面需要注意的一点就是，val的值。我们将唯一的值当做key，那么val怎么搞？
+在分布式系统环境下，val的值可以设置成该机器的唯一标识，例如时间+请求号。为什么这么说，当一个服务器向redis加锁时候，我们需要确定这个key是来自于哪台服务器，在解锁时需要校验是不是解锁的请求来自于同一个服务器；
+set(final String key, final String value, final String nxxx,final String expx, final int time) 方法：
+(1)key，我们使用key来当锁，key是唯一的。
+
+(2)value，我们传的是“时间+请求号”，通过给value赋值我们在解锁的时候就会传递同样的数据进行解锁。不至于出现不同的服务器对key进行解锁。为什么说，不允许出现不同的服务器对一个key进行解锁？我们后面讲解。
+
+(3)nxxx，NX意思为SET IF NOT EXIST，即当key不存在时，我们进行set操作；若key已经存在，则不做任何操作；
+
+(4)expx，PX意思是给这个key加一个过期设置，具体时间由第五个参数决定。
+
+(5)time，代表key的过期时间，单位毫秒。
+
+说完了上锁，接下来说说解锁：
+解锁，就是将key删除，你可能会觉得调用jedis删除方法就行了呗，事实并不是如此；
+public void deleteLock(Jedis jedis, String key){
+    jedis.del(key);
+}
+
+我们前面说了，在分布式环境中，哪台服务器加的锁，在解锁时候，还让那台服务器来解锁。不能出现A服务器加锁，而B服务器解锁的情况；而上面的代码就会出现这种情况。
+当A服务器将一个key设置超时时间为5秒钟，获取到锁执行业务逻辑，但是呢，5秒钟没有执行完，此时key由于到了过期时间而被删除了。正好B服务器进行了获取锁操作，发现key没有上锁，进而加锁开始执行业务逻辑。过了1秒后，A服务器执行完毕，执行释放所操作，del(key)，将B服务器上的锁给删除了。A、B服务器对同一个可以执行了一样的操作；
+实现如下：
+public void deleteLock(Jedis jedis, String key, String value){
+    if (value.equals(jedis.get(key))) {
+        jedis.del(lockKey);
+    }
+}
+
+上面实现，你觉得有问题吗？会不会出现A服务器加锁，而B服务器解锁的情况。
+答案：是。
+由于判断和del()操作不是原子性的，那么就会存在判断后，让其他服务器删除的情况；
+例如：A服务器加锁，执行业务逻辑，很快执行完毕，进行解锁操作，解锁判断，OK，准备进行del()操作，此时CPU切换到执行别的操作了，或者JVM虚拟机进行垃圾回收操作。这时候，key到了过期时间，B服务器执行获取到锁，执行业务逻辑，还没执行完成，A服务器复活，执行del()操作，删除key；此时，A服务器上的锁，超时而被删除，B服务器加锁，A服务器将其删除；
+终极大招，lua脚本实现：
+String luaScript = "if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end";
+
+jedis.eval(luaScript,Arrays.asList(key),Arrays.asList(value));
+
+总体代码结构为：
+ public void redisLock(Jedis jedis,String key,String val,int expireTime){
+    String luaScript = "if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end";
+    try{
+        String response = jedis.set(key, val, "NX", "PX", expireTime);
+        if(!"OK".equals(response)){
+            return;
+        }
+        //.....执行业务逻辑
+    }catch (Exception e){
+
+    }finally {
+        jedis.eval(luaScript,Arrays.asList(key),Arrays.asList(val));
+    }
+}
+
+通过lua脚本，解决了 解铃还须系铃人 的问题，但是并没有解决由于A服务器执行时间过长，导致锁失效，从而使得B服务器获取到了锁，对同一个key执行了相同的逻辑。
+笔者想到了两种方式。首先，需要确认的是，以上的情况发生概率很低，如果你的系统并发量不大，业务逻辑不复杂的话，基本上很难遇到这个误删除的问题，或者A、B服务器都对同一个key执行业务逻辑的问题。
+第一个解决办法，我给他起名叫“懒政”，意思是重复执行就重复执行吧，不影响数据的一致性就行。但是，此解决办法有个前提条件，不影响数据的最终一致性。比如说，在加锁的业务逻辑中有一个远程调用的接口，此接口不是幂等性的，你调用几次，此接口就接受几次你的数据，那么这种情况下就不能使用该方法。还有就是说，在业务逻辑中有一个update数据库更新操作，sql为 update set amount = amount - 10 where id = 1 and amount >=0，很常见的金额更新操作，但是如果对id为1的数据连续执行2次，那金额就不对了，这个是个大问题，这种情况也不行。
+第二个解决办法是，守护线程，当A服务器设置的锁要超时的时候，守护线程再对该锁进行续命，加血，延长存活时间。
+守护线程例子：
+public class ThreadTest implements Runnable{
+    @Override
+    public void run() {
+        for (;;){
+            System.out.println("111111111");
+        }
+    }
+    public static void main(String[] agrs){
+        ThreadTest threadTest = new ThreadTest();
+        Thread thread = new Thread(threadTest);
+        //thread.setDaemon(true);
+        thread.start();
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+当设置setDaemon为true时，当main方法执行结束后，新启动的线程也随之结束，这就是守护线程，守护这main方法主线程，随着main结束而结束；
+具体实现如下：
+public void redisLockAndDaemonThread(final Jedis jedis, String key, String val, int expireTime){
+    String luaScript = "if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end";
+    try{
+        String response = jedis.set(key, val, "NX", "PX", expireTime);
+        if(!"OK".equals(response)){
+            return;
+        }
+        //开启守护线程：
+        final int tmpExpireTime = expireTime;
+        final String tmpKey = key;
+        Thread thread = new Thread(new Runnable(){
+            @Override
+            public void run() {
+                for(;;){
+                    jedis.expire(tmpKey,tmpExpireTime);
+                    try {
+                        Thread.sleep(tmpExpireTime);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
+        thread.setDaemon(true);
+        thread.start();
+        //.....执行业务逻辑
+    }catch (Exception e){
+
+    }finally {
+        jedis.eval(luaScript,Arrays.asList(key),Arrays.asList(val));
+    }
+}
+
+与之前的一样，首先我们来对key进行加锁，设置超时间。获取到锁后，开启守护线程，再对key进行超时间设置，增加其寿命，接下来进行睡眠，如果在睡眠后还能继续执行，则说明此业务逻辑执行还未结束，再次对key进行寿命延长。
+如果业务线程结束，那么守护线程也随之结束。
+至此，如上便是redis实现分布式锁的逻辑。
+
+作者：贾博岩
+链接：https://www.jianshu.com/p/268e5d4ce045
+来源：简书
+简书著作权归作者所有，任何形式的转载都请联系作者获得授权并注明出处。
