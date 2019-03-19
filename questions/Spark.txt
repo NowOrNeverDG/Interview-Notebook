@@ -1,0 +1,19 @@
+1 sychoniced and volatile 区别
+
+2 volatile
+
+
+3 100个整数 最快排序方法
+
+4 concurrentHashMap 和 hashmap 区别
+
+5 concurrentHashMap 如何实现put get
+
+6 hashmap 或者 concurrentHashMap 如何解决冲突
+
+
+7 相同hashcode 是相同对象吗
+不是
+
+
+7 
